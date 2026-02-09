@@ -60,6 +60,7 @@ export const getAllStylists = async (req: Request, res: Response): Promise<void>
       address: stylist.user.address,
       skillLevel: stylist.skillLevel,
       surcharge: stylist.surcharge,
+      styleSurcharges: stylist.styleSurcharges,
       workingHours: stylist.workingHours,
       isActive: stylist.isActive,
       createdAt: stylist.createdAt,
@@ -120,6 +121,7 @@ export const getStylistById = async (req: Request, res: Response): Promise<void>
       address: stylist.user.address,
       skillLevel: stylist.skillLevel,
       surcharge: stylist.surcharge,
+      styleSurcharges: stylist.styleSurcharges,
       workingHours: stylist.workingHours,
       isActive: stylist.isActive,
       styles: (stylist as any).styles || []

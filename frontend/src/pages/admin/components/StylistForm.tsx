@@ -302,7 +302,7 @@ export function StylistForm({ form, onSubmit, isSubmitting, editingStylist, avai
             <div className="mb-2">
               <FormLabel className="text-base">Style-Specific Surcharges</FormLabel>
               <DialogDescription>
-                 Set specific surcharge amounts for each style (overrides global surcharge).
+                 Set specific surcharge amounts for each style. Leave 0.00 to use the global surcharge.
               </DialogDescription>
             </div>
             <div className="grid grid-cols-2 gap-4 max-h-40 overflow-y-auto p-1">
@@ -328,7 +328,9 @@ export function StylistForm({ form, onSubmit, isSubmitting, editingStylist, avai
                             value={field.value ?? ""} 
                             onChange={(e) => {
                                 const val = e.target.value;
-                                field.onChange(val === "" ? undefined : parseFloat(val));
+                                const parsed = parseFloat(val);
+                                // Treat empty string or 0 as undefined to use global surcharge
+                                field.onChange((val === "" || parsed === 0) ? undefined : parsed);
                             }}
                           />
                         </FormControl>

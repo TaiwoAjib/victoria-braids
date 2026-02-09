@@ -18,8 +18,12 @@ const getStylistSurcharge = (stylist: any, styleId: string | null): number => {
     // Check for style-specific surcharge first
     if (stylist.styleSurcharges && styleId) {
         const styleSurcharges = stylist.styleSurcharges as Record<string, number>;
-        if (styleSurcharges[styleId] !== undefined) {
-            return Number(styleSurcharges[styleId]);
+        const specificSurcharge = Number(styleSurcharges[styleId]);
+        
+        // Only use specific surcharge if it is defined and greater than 0
+        // If it is 0, we fall back to the global surcharge
+        if (styleSurcharges[styleId] !== undefined && specificSurcharge > 0) {
+            return specificSurcharge;
         }
     }
     

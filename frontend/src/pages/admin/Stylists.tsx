@@ -36,7 +36,7 @@ const stylistSchema = z.object({
   password: z.string().min(6, "Password must be at least 6 characters").optional().or(z.literal("")),
   skillLevel: z.string().min(1, "Skill level is required"),
   surcharge: z.coerce.number().min(0, "Surcharge must be positive").default(0),
-  styleSurcharges: z.record(z.string(), z.coerce.number()).default({}),
+  styleSurcharges: z.record(z.string(), z.number().optional().nullable()).default({}),
   workingHours: z.record(z.string(), z.object({
     start: z.string().optional(),
     end: z.string().optional(),
