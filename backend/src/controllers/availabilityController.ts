@@ -151,12 +151,12 @@ export const getAvailability = async (req: Request, res: Response): Promise<void
 
     while (loopDate <= end) {
         const dateKey = toDateString(loopDate);
-        const dayOfWeek = loopDate.getDay(); // 0 = Sunday
+        const dayOfWeek = loopDate.getUTCDay(); // 0 = Sunday
         const dayName = daysMap[dayOfWeek];
         const dayConfig = businessHours[dayName];
 
         // 1. Determine Effective Operating Range (Union of Global + Stylist Hours)
-        let minStartHour = 24;
+        let minStartHour = 12;
         let maxEndHour = 0;
         let isDayOpenGlobally = dayConfig && dayConfig.isOpen;
 
@@ -212,7 +212,7 @@ export const getAvailability = async (req: Request, res: Response): Promise<void
                 const unassignedBookings = dayBookings.filter(b => !b.stylistId);
                 for (const b of unassignedBookings) {
                     const bTime = new Date(b.bookingTime);
-                    const bStartMinutes = bTime.getHours() * 60 + bTime.getMinutes();
+                    const bStartMinutes = bTime.getUTCHours() * 60 + bTime.getUTCMinutes();
                     const bDuration = getBookingDuration(b);
                     const bEndMinutes = bStartMinutes + bDuration;
 
@@ -270,7 +270,7 @@ export const getAvailability = async (req: Request, res: Response): Promise<void
 
                     for (const b of stylistBookings) {
                         const bTime = new Date(b.bookingTime);
-                        const bStartMinutes =bTime.getHours() * 60 + bTime.getMinutes();
+                        const bStartMinutes =bTime.getUTCHours() * 60 + bTime.getUTCMinutes();
                         const bDuration = getBookingDuration(b);
                         const bEndMinutes = bStartMinutes + bDuration;
 
@@ -301,7 +301,7 @@ export const getAvailability = async (req: Request, res: Response): Promise<void
         }
 
         // Next day
-         loopDate.setDate(loopDate.getDate() + 1);
+         loopDate.setDate(loopDate.getUTCDate() + 1);
     }
 
     // Return array if single date (legacy support), object if range
