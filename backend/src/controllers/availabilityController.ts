@@ -24,8 +24,9 @@ export const getAvailability = async (req: Request, res: Response): Promise<void
         start = new Date(startDate as string);
         end = new Date(endDate as string);
     } else if (date) {
-        start = new Date(date as string);
-        end = new Date(date as string);
+          start = new Date(date as string);
+          end = new Date(date as string);
+          end.setUTCDate(end.getUTCDate() + 1);
     } else {
        res.status(400).json({ message: 'Date or startDate/endDate is required' });
        return;
