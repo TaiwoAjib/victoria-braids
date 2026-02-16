@@ -156,7 +156,7 @@ export const getAvailability = async (req: Request, res: Response): Promise<void
         const dayConfig = businessHours[dayName];
 
         // 1. Determine Effective Operating Range (Union of Global + Stylist Hours)
-        let minStartHour = 0;
+        let minStartHour = 12;
         let maxEndHour = 0;
         let isDayOpenGlobally = dayConfig && dayConfig.isOpen;
 
