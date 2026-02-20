@@ -165,6 +165,8 @@ export const createBooking = async (req: Request, res: Response): Promise<void> 
         return;
     }
 
+    let serviceDisplayName = category.name;
+
     // Validate Style (formerly Service)
     if (styleId) {
          const style = await prisma.style.findUnique({ where: { id: styleId } });
@@ -172,6 +174,8 @@ export const createBooking = async (req: Request, res: Response): Promise<void> 
              res.status(400).json({ message: 'Invalid Style ID' });
              return;
          }
+
+         serviceDisplayName = category.name || style.name;
 
          // Validate Stylist Capability
          if (stylistId) {
@@ -393,7 +397,7 @@ export const createBooking = async (req: Request, res: Response): Promise<void> 
         if (user.email) {
             const { subject, html } = await emailService.getBookingConfirmationContent(
                 user.fullName, 
-                category.name, // Use category name (Variation)
+                serviceDisplayName,
                 date, 
                 time, 
                 !!guestDetails
@@ -684,9 +688,8 @@ export const createPaymentIntent = async (req: Request, res: Response): Promise<
         customer_phone: guestDetails?.phone,
         customer_email: guestDetails?.email
       },
-      automatic_payment_methods: {
-        enabled: true,
-      },
+       automatic_payment_methods: { enabled: false },
+       payment_method_types: ["card", "us_bank_account"]
     });
 
     res.send({
@@ -708,7 +711,8 @@ export const createBookingPaymentIntent = async (req: Request, res: Response): P
             amount,
             currency: 'usd',
             metadata: { bookingId: id },
-            automatic_payment_methods: { enabled: true }
+            automatic_payment_methods: { enabled: false },
+            payment_method_types: ["card", "us_bank_account"]
         });
 
         res.json({

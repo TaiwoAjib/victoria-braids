@@ -24,8 +24,8 @@ export const getAvailability = async (req: Request, res: Response): Promise<void
         start = new Date(startDate as string);
         end = new Date(endDate as string);
     } else if (date) {
-        start = new Date(date as string);
-        end = new Date(date as string);
+          start = new Date(date as string);
+          end = new Date(date as string);
     } else {
        res.status(400).json({ message: 'Date or startDate/endDate is required' });
        return;
@@ -270,7 +270,7 @@ export const getAvailability = async (req: Request, res: Response): Promise<void
 
                     for (const b of stylistBookings) {
                         const bTime = new Date(b.bookingTime);
-                        const bStartMinutes = bTime.getUTCHours() * 60 + bTime.getUTCMinutes();
+                        const bStartMinutes =bTime.getUTCHours() * 60 + bTime.getUTCMinutes();
                         const bDuration = getBookingDuration(b);
                         const bEndMinutes = bStartMinutes + bDuration;
 
@@ -301,7 +301,7 @@ export const getAvailability = async (req: Request, res: Response): Promise<void
         }
 
         // Next day
-        loopDate.setUTCDate(loopDate.getUTCDate() + 1);
+         loopDate.setDate(loopDate.getUTCDate() + 1);
     }
 
     // Return array if single date (legacy support), object if range

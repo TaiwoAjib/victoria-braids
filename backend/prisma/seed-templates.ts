@@ -18,8 +18,7 @@ const templates = [
           <p style="margin: 0;"><strong>Email:</strong> {email}</p>
           <p style="margin: 10px 0 0;"><strong>Password:</strong> {password}</p>
         </div>
-        <p>You can log in to your dashboard to view your appointment details.</p>
-        <p>Please pay the {depositAmount} booking fee upon arrival for your appointment.</p>
+        <p>You can log in to your dashboard to view your appointment details.</p> 
         <p>Best regards,<br>Victoria Braids Team</p>
       </div>
     `,
@@ -35,8 +34,7 @@ const templates = [
         <h2 style="color: #333;">Booking Confirmed!</h2>
         <p>Hi {name},</p>
         <p>Your appointment for <strong>{service}</strong> on <strong>{date} at {time}</strong> has been confirmed.</p>
-        <p>Please pay the {depositAmount} booking fee upon arrival for your appointment.</p>
-        <p>We look forward to seeing you!</p>
+         <p>We look forward to seeing you!</p>
         <p>Best regards,<br>Victoria Braids Team</p>
       </div>
     `,

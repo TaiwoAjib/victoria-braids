@@ -84,7 +84,7 @@ export const emailService = {
           <p style="margin: 10px 0 0;"><strong>Password:</strong> ${password}</p>
         </div>
         <p>You can log in to your dashboard to view your appointment details.</p>
-        <p>Please pay the ${depositAmount} booking fee upon arrival for your appointment.</p>
+        
         <p>Best regards,<br>Victoria Braids Team</p>
       </div>
     `;
@@ -131,8 +131,7 @@ export const emailService = {
           <p style="margin: 0;"><strong>Date:</strong> ${date}</p>
           <p style="margin: 10px 0 0;"><strong>Time:</strong> ${time}</p>
         </div>
-        <p>Please remember to pay the <strong>${depositAmount} booking fee</strong> upon arrival to confirm your slot.</p>
-        <p>We look forward to seeing you!</p>
+         <p>We look forward to seeing you!</p>
         <p>Best regards,<br>Victoria Braids Team</p>
       </div>
     `;
