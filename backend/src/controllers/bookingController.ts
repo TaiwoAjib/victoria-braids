@@ -35,6 +35,27 @@ const getStylistSurcharge = (stylist: any, styleId: string | null): number => {
     return 0;
 };
 
+const getPaymentSummary = (booking: any, price: number) => {
+    const payments = booking.payments || [];
+    const succeeded = payments.filter((p: any) => p.status === 'succeeded');
+    const totalPaid = succeeded.reduce((sum: number, p: any) => sum + Number(p.amount), 0) || 0;
+    let paymentStatus: 'pending' | 'deposit_paid' | 'paid_in_full' = 'pending';
+
+    if (totalPaid > 0) {
+        paymentStatus = 'deposit_paid';
+        if (booking.status === 'completed') {
+            const sorted = [...succeeded].sort((a, b) => a.id.localeCompare(b.id));
+            const initialDeposit = sorted.length > 0 ? Number(sorted[0].amount) : 0;
+            const targetTotal = price + initialDeposit;
+            if (targetTotal > 0 && totalPaid >= targetTotal - 0.01) {
+                paymentStatus = 'paid_in_full';
+            }
+        }
+    }
+
+    return { totalPaid, paymentStatus };
+};
+
 export const getBookings = async (req: Request, res: Response): Promise<void> => {
   try {
     const userRole = (req as any).user?.role;
@@ -109,19 +130,21 @@ export const getBookings = async (req: Request, res: Response): Promise<void> =>
             }
         }
 
-        // Add Stylist Surcharge (Dynamic)
         if (booking.stylist) {
              price += getStylistSurcharge(booking.stylist, booking.styleId);
         }
+        const { totalPaid, paymentStatus } = getPaymentSummary(booking, price);
         
         return {
             ...booking,
             bookingDate: booking.bookingDate ? booking.bookingDate.toISOString().split('T')[0] : null,
             // Map for frontend compatibility or new structure
-            serviceName: booking.category?.name, // Variation
-            styleName: booking.style?.name, // Main Style
+            serviceName: booking.category?.name,
+            styleName: booking.style?.name,
             price,
-            duration
+            duration,
+            totalPaid,
+            paymentStatus
         };
     }));
 
@@ -144,19 +167,6 @@ export const createBooking = async (req: Request, res: Response): Promise<void> 
 
     let userId = (req as any).user?.id;
     let createdUserPassword = '';
-
-    // Verify Payment
-    if (!paymentIntentId) {
-        res.status(400).json({ message: 'Payment is required to confirm booking' });
-        return;
-    }
-
-    // Check Payment Status with Stripe
-    const paymentIntent = await stripe.paymentIntents.retrieve(paymentIntentId);
-    if (paymentIntent.status !== 'succeeded') {
-        res.status(400).json({ message: 'Payment validation failed. Status: ' + paymentIntent.status });
-        return;
-    }
 
     // Validate Variation (formerly Category)
     const category = await prisma.category.findUnique({ where: { id: categoryId } });
@@ -216,16 +226,7 @@ export const createBooking = async (req: Request, res: Response): Promise<void> 
          }
     }
 
-    // Check if amount is correct (minimum $1 deposit for testing, or dynamic deposit)
     const settings = await prisma.salonSettings.findFirst();
-    const depositAmount = Number(settings?.depositAmount || 50);
-    
-    // We expect the payment amount (in cents) to be at least the deposit amount (in cents)
-    // Adding a small buffer or checking against the calculated total with fees would be more robust,
-    // but for now ensuring it's not trivial (like $0.50) is a basic check.
-    if (paymentIntent.amount < (depositAmount * 100)) {
-         // console.warn('Payment amount mismatch', paymentIntent.amount);
-    }
 
     // Handle Guest Booking
     if (!userId) {
@@ -313,12 +314,9 @@ export const createBooking = async (req: Request, res: Response): Promise<void> 
     bookingTime.setUTCHours(Number(timeParts[0]));
     bookingTime.setUTCMinutes(Number(timeParts[1]));
 
-    // Transaction to create booking and payment record
     let result;
     try {
         result = await prisma.$transaction(async (tx) => {
-            // 1. Race Condition Check
-            // If a specific stylist is selected, check if they are already booked
             if (stylistId) {
                 const existingBooking = await tx.booking.findFirst({
                     where: {
@@ -333,7 +331,6 @@ export const createBooking = async (req: Request, res: Response): Promise<void> 
                     throw new Error('Selected stylist is no longer available at this time.');
                 }
             } else {
-                 // Check if user already has a booking at this time to prevent duplicates
                  const duplicateBooking = await tx.booking.findFirst({
                     where: {
                         customerId: userId,
@@ -359,34 +356,11 @@ export const createBooking = async (req: Request, res: Response): Promise<void> 
                     status: 'booked',
                 },
             });
-
-            await tx.payment.create({
-                data: {
-                    bookingId: booking.id,
-                    amount: paymentIntent.amount / 100,
-                    stripePaymentId: paymentIntentId,
-                    status: 'succeeded'
-                }
-            });
-
             return booking;
         });
     } catch (transactionError: any) {
         console.error('Booking transaction failed:', transactionError);
-        
-        // Attempt to refund the payment since we took money but failed to book
-        try {
-            console.log(`Initiating refund for PaymentIntent: ${paymentIntentId}`);
-            await stripe.refunds.create({
-                payment_intent: paymentIntentId,
-            });
-            console.log('Refund successful');
-        } catch (refundError) {
-            console.error('CRITICAL: Failed to refund after booking error:', refundError);
-            // This is where you'd send an alert to Admin (Slack/Email)
-        }
-
-        res.status(409).json({ message: transactionError.message || 'Booking failed. Your payment has been refunded.' });
+        res.status(409).json({ message: transactionError.message || 'Booking failed.' });
         return;
     }
 
@@ -707,6 +681,24 @@ export const createBookingPaymentIntent = async (req: Request, res: Response): P
         const id = req.params.id as string;
         const { amount } = req.body; // Amount in cents
 
+        const booking = await prisma.booking.findUnique({
+            where: { id },
+            include: { customer: true }
+        });
+
+        if (!booking) {
+            res.status(404).json({ message: 'Booking not found' });
+            return;
+        }
+
+        const userId = (req as any).user?.id;
+        const userRole = (req as any).user?.role;
+
+        if (userRole && userRole !== 'admin' && userRole !== 'stylist' && booking.customerId !== userId) {
+            res.status(403).json({ message: 'Not authorized to create payment for this booking' });
+            return;
+        }
+
         const paymentIntent = await stripe.paymentIntents.create({
             amount,
             currency: 'usd',
@@ -730,6 +722,24 @@ export const addBookingPayment = async (req: Request, res: Response): Promise<vo
         const id = req.params.id as string;
         const { amount, method, stripePaymentId } = req.body; // Amount in dollars
 
+        const existingBooking = await prisma.booking.findUnique({
+            where: { id },
+            include: { customer: true }
+        });
+
+        if (!existingBooking) {
+            res.status(404).json({ message: 'Booking not found' });
+            return;
+        }
+
+        const userId = (req as any).user?.id;
+        const userRole = (req as any).user?.role;
+
+        if (userRole && userRole !== 'admin' && userRole !== 'stylist' && existingBooking.customerId !== userId) {
+            res.status(403).json({ message: 'Not authorized to add payment for this booking' });
+            return;
+        }
+
         const payment = await prisma.payment.create({
             data: {
                 bookingId: id,
@@ -746,7 +756,10 @@ export const addBookingPayment = async (req: Request, res: Response): Promise<vo
             where: { id },
             include: { 
                 payments: true,
-                customer: { select: { id: true, fullName: true, email: true, phone: true, notificationConsent: true } }
+                customer: { select: { id: true, fullName: true, email: true, phone: true, notificationConsent: true } },
+                category: { select: { name: true } },
+                style: { select: { name: true } },
+                stylist: { include: { user: { select: { id: true, fullName: true } } } }
             }
         });
 
@@ -788,10 +801,38 @@ export const addBookingPayment = async (req: Request, res: Response): Promise<vo
             }
         }
 
-        res.json(booking ? {
+        if (!booking) {
+            res.status(404).json({ message: 'Booking not found' });
+            return;
+        }
+
+        let price = 0;
+        if (booking.styleId && booking.categoryId) {
+            const pricing = await prisma.stylePricing.findUnique({
+                where: {
+                    styleId_categoryId: {
+                        styleId: booking.styleId,
+                        categoryId: booking.categoryId
+                    }
+                }
+            });
+            if (pricing) {
+                price = Number(pricing.price);
+            }
+        }
+        if (booking.stylist) {
+            price += getStylistSurcharge(booking.stylist, booking.styleId);
+        }
+
+        const { totalPaid, paymentStatus } = getPaymentSummary(booking, price);
+
+        res.json({
             ...booking,
-            bookingDate: booking.bookingDate ? booking.bookingDate.toISOString().split('T')[0] : null
-        } : null);
+            bookingDate: booking.bookingDate ? booking.bookingDate.toISOString().split('T')[0] : null,
+            price,
+            totalPaid,
+            paymentStatus
+        });
     } catch (error) {
         console.error('Error adding payment:', error);
         res.status(500).json({ message: 'Error adding payment' });

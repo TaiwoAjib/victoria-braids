@@ -148,9 +148,27 @@ export default function MyBookings() {
               ${booking.price || '0.00'}
             </CardDescription>
           </div>
-          <Badge className={getStatusColor(booking.status)}>
-            {booking.status === 'checked_in' ? 'Checked In' : booking.status}
-          </Badge>
+          <div className="flex flex-col items-end gap-1">
+            <Badge className={getStatusColor(booking.status)}>
+              {booking.status === 'checked_in' ? 'Checked In' : booking.status}
+            </Badge>
+            <Badge
+              variant="outline"
+              className={
+                booking.paymentStatus === 'deposit_paid'
+                  ? 'border-yellow-300 bg-yellow-50 text-yellow-800'
+                  : booking.paymentStatus === 'paid_in_full'
+                  ? 'border-green-300 bg-green-50 text-green-800'
+                  : 'border-red-300 bg-red-50 text-red-800'
+              }
+            >
+              {booking.paymentStatus === 'deposit_paid'
+                ? 'Deposit Paid'
+                : booking.paymentStatus === 'paid_in_full'
+                ? 'Paid in Full'
+                : 'Payment Pending'}
+            </Badge>
+          </div>
         </div>
       </CardHeader>
       <CardContent className="pt-4 space-y-3">
@@ -169,8 +187,10 @@ export default function MyBookings() {
       </CardContent>
       <CardFooter className="bg-muted/20 py-2 px-4 flex flex-col gap-2">
          <div className="flex justify-between w-full text-xs text-muted-foreground">
-            <span>Booking Fee Paid</span>
-            <span className="font-mono">${booking.payment?.amount || '0.00'}</span>
+            <span>Total Paid</span>
+            <span className="font-mono">
+              ${((booking.totalPaid ?? (booking.payments?.reduce((sum: number, p: any) => sum + Number(p.amount), 0) || 0)) as number).toFixed(2)}
+            </span>
          </div>
          {canCheckIn && (
              <Button 

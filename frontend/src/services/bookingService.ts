@@ -26,7 +26,7 @@ export interface CreateBookingData {
   date: string; // YYYY-MM-DD
   time: string; // HH:mm
   guestDetails?: GuestDetails;
-  paymentIntentId: string;
+  paymentIntentId?: string;
   promoId?: string | null;
 }
 
@@ -67,6 +67,8 @@ export interface Booking {
   bookingDate: string;
   bookingTime: string;
   payments: Payment[];
+  totalPaid?: number;
+  paymentStatus?: 'pending' | 'deposit_paid' | 'paid_in_full';
   promo?: {
     id: string;
     title?: string;

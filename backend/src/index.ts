@@ -24,22 +24,34 @@ import promoRoutes from './routes/promoRoutes';
 import cron from 'node-cron';
 import { reminderService } from './services/reminderService';
 
-// Load environment variables
 dotenv.config();
 
 const app = express();
 const PORT = process.env.PORT || 5000;
+const ENABLE_REMINDERS = process.env.ENABLE_REMINDERS !== 'false';
 
-// Disable ETag to prevent 304 Not Modified responses
 app.set('etag', false);
 
-// Middleware
 app.use(express.json());
 app.use(cors());
 app.use(helmet());
 app.use(morgan('dev'));
 
-// Routes
+app.use((req, res, next) => {
+  const start = Date.now();
+  res.setTimeout(60000, () => {
+    console.error('Request timed out', req.method, req.originalUrl);
+    if (!res.headersSent) {
+      res.status(504).json({ message: 'Request timeout' });
+    }
+  });
+  res.on('finish', () => {
+    const duration = Date.now() - start;
+    console.log(`${req.method} ${req.originalUrl} ${res.statusCode} ${duration}ms`);
+  });
+  next();
+});
+
 app.use('/api/auth', authRoutes);
 app.use('/api/styles', stylesRoutes);
 app.use('/api/categories', categoryRoutes);
@@ -62,25 +74,21 @@ app.get('/', (req, res) => {
   res.send('Victoria Salon API is running');
 });
 
-// Global Error Handler
 app.use((err: any, req: express.Request, res: express.Response, next: express.NextFunction) => {
   console.error('Unhandled Error:', err);
   res.status(500).json({
     message: err.message || 'Internal Server Error',
-    stack: process.env.NODE_ENV === 'development' ? err.stack : undefined
+    stack: process.env.NODE_ENV === 'development' ? err.stack : undefined,
   });
 });
 
-// Start Server
 app.listen(PORT, () => {
   console.log(`Server running on port ${PORT}`);
 
-  // Schedule Reminder Job (Every hour at minute 0)
-  cron.schedule('0 * * * *', () => {
-    console.log('Running scheduled reminder check...');
-    reminderService.checkAndSendReminders();
-  });
-  
-  // Initial check on startup (Optional, for testing)
-  // reminderService.checkAndSendReminders();
+  if (ENABLE_REMINDERS) {
+    cron.schedule('0 * * * *', () => {
+      console.log('Running scheduled reminder check...');
+      reminderService.checkAndSendReminders();
+    });
+  }
 });

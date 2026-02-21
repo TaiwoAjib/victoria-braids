@@ -87,6 +87,8 @@ export default function Booking() {
   const [showConsentDialog, setShowConsentDialog] = useState(false);
   const [authSmsConsent, setAuthSmsConsent] = useState(true);
   const [showAuthConsentDialog, setShowAuthConsentDialog] = useState(false);
+  const [bookingId, setBookingId] = useState<string | null>(null);
+  const [storedPaymentIntentId, setStoredPaymentIntentId] = useState<string | null>(null);
 
   // --- Computed ---
   const depositAmount = settings?.depositAmount
@@ -387,6 +389,35 @@ export default function Booking() {
         setShowConsentDialog(true);
         return;
       }
+      if (!selectedStyleId || !selectedCategoryId || !selectedDate || !selectedTime) {
+        toast({ title: "Missing data", description: "Please complete previous steps.", variant: "destructive" });
+        return;
+      }
+      if (!bookingId) {
+        try {
+          setLoading(true);
+          const dateStr = format(selectedDate, 'yyyy-MM-dd');
+          const booking = await bookingService.createBooking({
+            styleId: selectedStyleId,
+            categoryId: selectedCategoryId,
+            stylistId: (selectedStylistId && selectedStylistId !== 'unassigned') ? selectedStylistId : undefined,
+            date: dateStr,
+            time: selectedTime,
+            guestDetails: isLoggedIn ? { ...guestDetails, smsConsent: authSmsConsent } : guestDetails,
+            promoId: activePromo ? activePromo.id : undefined,
+          });
+          setBookingId(booking.id);
+        } catch (error: any) {
+          toast({
+            title: "Booking Failed",
+            description: error.message || "Could not create booking",
+            variant: "destructive",
+          });
+          return;
+        } finally {
+          setLoading(false);
+        }
+      }
 
       setStep(6);
     }
@@ -395,6 +426,7 @@ export default function Booking() {
   const handleBack = () => {
     if (step === 6) {
         setClientSecret(null);
+        setStoredPaymentIntentId(null);
     }
     if (step > 1) {
         setStep(step - 1);
@@ -402,20 +434,14 @@ export default function Booking() {
   };
   
   const handlePaymentSuccess = async (paymentIntentId: string) => {
-    if (!selectedStyleId || !selectedDate || !selectedTime) return;
+    if (!bookingId) return;
     
     setLoading(true);
     try {
-      const dateStr = format(selectedDate, 'yyyy-MM-dd');
-      await bookingService.createBooking({
-        styleId: selectedStyleId,
-        categoryId: selectedCategoryId,
-        stylistId: (selectedStylistId && selectedStylistId !== 'unassigned') ? selectedStylistId : undefined,
-        date: dateStr,
-        time: selectedTime,
-        guestDetails: isLoggedIn ? { ...guestDetails, smsConsent: authSmsConsent } : guestDetails,
-        paymentIntentId: paymentIntentId,
-        promoId: activePromo ? activePromo.id : undefined,
+      await bookingService.addPayment(bookingId, {
+        amount: TOTAL_DEPOSIT,
+        method: 'stripe',
+        stripePaymentId: paymentIntentId
       });
 
       setStep(7);
@@ -434,12 +460,15 @@ export default function Booking() {
     setLoading(true);
     setPaymentError(null);
     try {
-      const data = await bookingService.createPaymentIntent(TOTAL_DEPOSIT_CENTS, guestDetails);
-      if (data.clientSecret) {
-        setClientSecret(data.clientSecret);
-      } else {
-         throw new Error("No client secret received");
+      if (!bookingId) {
+        throw new Error("No booking created for payment");
       }
+      const data = await bookingService.createBookingPaymentIntent(bookingId, TOTAL_DEPOSIT_CENTS);
+      if (!data.clientSecret || !data.paymentIntentId) {
+        throw new Error("Invalid payment intent response");
+      }
+      setClientSecret(data.clientSecret);
+      setStoredPaymentIntentId(data.paymentIntentId);
     } catch (error: any) {
       console.error("Payment initialization failed:", error);
       setPaymentError(error.message || "Failed to initialize payment");
@@ -447,7 +476,7 @@ export default function Booking() {
     } finally {
       setLoading(false);
     }
-  }, [toast, TOTAL_DEPOSIT_CENTS, guestDetails]);
+  }, [toast, TOTAL_DEPOSIT_CENTS, bookingId]);
 
   useEffect(() => {
     if (step === 6 && !clientSecret) {

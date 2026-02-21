@@ -586,8 +586,27 @@ export default function Bookings() {
                 <div className="flex justify-between items-center">
                    <span className="text-muted-foreground">Total Paid:</span>
                    <span className="font-medium text-green-600 bg-green-50 px-2 py-0.5 rounded-full border border-green-100">
-                     ${(booking.payments?.reduce((sum, p) => sum + Number(p.amount), 0) || 0).toFixed(2)}
+                     ${(booking.totalPaid ?? (booking.payments?.reduce((sum, p) => sum + Number(p.amount), 0) || 0)).toFixed(2)}
                    </span>
+                </div>
+                <div className="flex justify-between items-center mt-1">
+                  <span className="text-muted-foreground">Payment Status:</span>
+                  <Badge
+                    variant="outline"
+                    className={
+                      booking.paymentStatus === 'deposit_paid'
+                        ? 'border-yellow-300 bg-yellow-50 text-yellow-800'
+                        : booking.paymentStatus === 'paid_in_full'
+                        ? 'border-green-300 bg-green-50 text-green-800'
+                        : 'border-red-300 bg-red-50 text-red-800'
+                    }
+                  >
+                    {booking.paymentStatus === 'deposit_paid'
+                      ? 'Deposit Paid'
+                      : booking.paymentStatus === 'paid_in_full'
+                      ? 'Paid in Full'
+                      : 'Pending'}
+                  </Badge>
                 </div>
              </div>
           </div>
@@ -637,26 +656,16 @@ export default function Bookings() {
                    </Button>
                )}
                
-               {/* Payment Action */}
                {booking.status === 'completed' && (
                    <div className="flex items-center gap-2">
-                       {(() => {
-                           const totalPaid = booking.payments?.reduce((sum, p) => sum + Number(p.amount), 0) || 0;
-                           // Assume first payment is deposit
-                           const initialDeposit = booking.payments && booking.payments.length > 0 
-                                ? Number([...booking.payments].sort((a, b) => a.id.localeCompare(b.id))[0].amount) 
-                                : 0;
-                           const targetTotal = Number(booking.price || 0) + initialDeposit;
-                           
-                           return totalPaid >= targetTotal - 0.01 ? ( // tolerance for float
-                               <Badge className="bg-green-100 text-green-800 hover:bg-green-100">Paid in Full</Badge>
-                           ) : (
-                               <RecordPaymentDialog 
-                                    booking={booking} 
-                                    onRecordPayment={(amount, method, stripePaymentId) => handleRecordPayment(booking.id, amount, method, stripePaymentId)} 
-                               />
-                           );
-                       })()}
+                       {booking.paymentStatus === 'paid_in_full' ? (
+                           <Badge className="bg-green-100 text-green-800 hover:bg-green-100">Paid in Full</Badge>
+                       ) : (
+                           <RecordPaymentDialog 
+                                booking={booking} 
+                                onRecordPayment={(amount, method, stripePaymentId) => handleRecordPayment(booking.id, amount, method, stripePaymentId)} 
+                           />
+                       )}
                    </div>
                )}
                

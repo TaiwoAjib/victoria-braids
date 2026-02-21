@@ -22,9 +22,9 @@ router.post('/:id/check-in', protect, checkInBooking);
 router.patch('/:id', protect, authorize('admin', 'stylist'), updateBooking);
 
 // Admin/Stylist: Create Payment Intent for existing booking (Service Payment)
-router.post('/:id/payment-intent', protect, authorize('admin', 'stylist'), createBookingPaymentIntent);
+router.post('/:id/payment-intent', authenticateToken, createBookingPaymentIntent);
 
 // Admin/Stylist: Add payment to booking (Confirm Payment)
-router.post('/:id/payments', protect, authorize('admin', 'stylist'), addBookingPayment);
+router.post('/:id/payments', authenticateToken, addBookingPayment);
 
 export default router;

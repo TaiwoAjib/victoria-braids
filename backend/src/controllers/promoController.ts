@@ -1,14 +1,16 @@
 import { Request, Response } from 'express';
 import prisma from '../utils/prisma';
 
-// Public: Get active promos
+const MAX_PROMO_PAGE_SIZE = 100;
+const DEFAULT_PROMO_PAGE_SIZE = 50;
+
 export const getActivePromos = async (req: Request, res: Response): Promise<void> => {
   try {
     const promos = await prisma.monthlyPromo.findMany({
       where: {
         isActive: true,
         offerEnds: {
-          gte: new Date(), // Only future/current promos
+          gte: new Date(),
         },
       },
       include: {
@@ -22,6 +24,7 @@ export const getActivePromos = async (req: Request, res: Response): Promise<void
       orderBy: {
         createdAt: 'desc',
       },
+      take: DEFAULT_PROMO_PAGE_SIZE,
     });
     res.json(promos);
   } catch (error) {
@@ -30,10 +33,16 @@ export const getActivePromos = async (req: Request, res: Response): Promise<void
   }
 };
 
-// Admin: Get all promos
 export const getAllPromos = async (req: Request, res: Response): Promise<void> => {
   try {
+    const page = parseInt((req.query.page as string) || '1', 10);
+    const pageSize = parseInt((req.query.pageSize as string) || `${DEFAULT_PROMO_PAGE_SIZE}`, 10);
+    const safePage = Number.isNaN(page) || page < 1 ? 1 : page;
+    const safePageSize = Number.isNaN(pageSize) || pageSize < 1 ? DEFAULT_PROMO_PAGE_SIZE : Math.min(pageSize, MAX_PROMO_PAGE_SIZE);
+
     const promos = await prisma.monthlyPromo.findMany({
+      skip: (safePage - 1) * safePageSize,
+      take: safePageSize,
       include: {
         stylePricing: {
           include: {
