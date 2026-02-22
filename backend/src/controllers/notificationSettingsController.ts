@@ -90,14 +90,13 @@ export const rejectNotification = async (req: Request, res: Response) => {
 // Update a pending notification
 export const updatePendingNotification = async (req: Request, res: Response) => {
   const id = req.params.id as string;
-  const { subject, content } = req.body;
   try {
     const notification = await prisma.notification.update({
       where: { id },
-      data: { subject, content }
+      data: { status: 'SENT' }
     });
     res.json(notification);
   } catch (error) {
-    res.status(500).json({ message: 'Error updating notification', error });
+    res.status(500).json({ message: 'Error approving notification', error });
   }
 };
